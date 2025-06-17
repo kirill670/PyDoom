@@ -14,6 +14,8 @@ import zipfile, array # Hints for cx_Freeze
 # sys.path manipulation
 from sys import stdout
 
+# --- Logging Setup ---
+# Configures logging for the application, outputting to both console and pydoom.log.
 mainlogformat = logging.Formatter (style='{',
     fmt='[{levelname}] ({name}) {message}')
     
@@ -40,19 +42,25 @@ from sys import argv, exit
 import pydoom.interface as interface
 import pydoom.wadfile as wadfile
 
+# --- Main Application Entry Point ---
 def main ():
     global masterlog
     
+    # Initialize SDL and other core systems
     interface.ready ()
 
     masterlog.info ("PyDoom revision {}".format (GITVERSION))
     if argv[1:]:
         masterlog.info ("Command line: {}".format (' '.join (argv[1:])))
 
+    # Parse command line arguments
     args = ArgumentParser (argv[1:])
     args.CollectArgs ()
 
+    # Load system configuration from pydoom.ini
     loadSystemConfig ()
+    # Load main resource archive (PyDoomResource.zip)
+    # This archive should contain game scripts, base assets etc.
     try:
         mainResource = ResourceArchive ("PyDoomResource.zip")
     except FileNotFoundError:
@@ -61,6 +69,7 @@ def main ():
     
     games = mainResource.game_modules
 
+    # Determine game settings (resolution, fullscreen, selected game)
     width, height = (640, 480)
     fullscreen = False
     game = None
@@ -76,10 +85,15 @@ def main ():
                 game = thisgame
     del args
     
+    # Create the main OpenGL window
     screen = interface.OpenGLWindow ("PyDoom", width, height, fullscreen, False)
     
-    iwad = wadfile.WadFile ("games/doom2.wad")
+    # Load the primary WAD file (hardcoded to doom2.wad for now)
+    iwad = wadfile.WadFile ("games/doom2.wad") # TODO: Make this configurable via args or game module
     
+    # --- Example: Display TITLEPIC ---
+    # This section demonstrates loading a graphic and palette from the WAD,
+    # creating a texture, and displaying it.
     graphic = iwad.FindFirstLump ("TITLEPIC")
     palette = iwad.FindFirstLump ("PLAYPAL")
     gstr = graphic.read()
@@ -88,6 +102,7 @@ def main ():
     
     screen.loadTexture ("TITLEPIC", texture)
     
+    # Compile and use a basic 2D shader program
     prog = screen.compileProgram ("2DBasic", """#version 320 es
 
 precision mediump float;
@@ -119,18 +134,23 @@ void main ()
     screen.drawHud ("TITLEPIC", 0, 0, 1, 1)
     screen.swap ()
     
+    # Main loop placeholder (currently just sleeps)
+    # TODO: Implement a proper game loop here
     from time import sleep
     sleep (5)
     
+    # Cleanup resources
     screen.unloadTexture ("TITLEPIC")
     
     del screen
     interface.quit ()
 
+# --- Application Execution ---
 try:
     main ()
     exit (0)
 except Exception as err:
+    # General error handling and logging
     exctext = traceback.format_exc ()
     masterlog.error (exctext)
     exit (1)

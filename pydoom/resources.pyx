@@ -7,6 +7,11 @@
 # This file is covered by the 3-clause BSD license.
 # See the LICENSE file in this program's distribution for details.
 
+# This module provides the `ResourceArchive` class, which is responsible for
+# managing and loading game assets and Python-based game modules from a
+# central ZIP archive (typically "PyDoomResource.zip"). This allows for
+# packaging essential game scripts and resources together.
+
 cimport cython
 from libc.string cimport strcmp
 from libc.stdio cimport sprintf
@@ -53,7 +58,13 @@ def MeasureSize (double size):
     return endstr.decode ("utf8")
 
 class ResourceArchive:
+    # Manages resources contained within a ZIP file. It's primarily used to
+    # load the main `PyDoomResource.zip` which includes shared assets and
+    # Python scripts defining different game types (e.g., Doom, Doom 2).
     def __init__ (self, filename):
+        # Constructor: Opens the specified ZIP archive.
+        # It then attempts to read "Games.txt" from the archive to discover
+        # and load Python modules that define specific game implementations.
         self.filename = filename
         self._file = open (filename, "rb")
         self.magic = self._file.read (4)
@@ -64,6 +75,10 @@ class ResourceArchive:
         self.game_modules = self.readGames ()
 
     def readGames (self):
+        # Reads a file named "Games.txt" from the root of the ZIP archive.
+        # Each line in "Games.txt" is expected to be the name of a Python module
+        # (located in the "scripts/" directory within the ZIP) to be imported.
+        # Returns a list of the imported game modules.
         games = []
         
         gamelisttxt = None
@@ -87,6 +102,9 @@ class ResourceArchive:
         return games
     
     def importModule (self, modulename):
+        # Imports a Python module from the "scripts/" directory located inside
+        # the ZIP archive. This allows game logic to be packaged within the
+        # resource file.
         temp_path = sys.path
         sys.path = [joinpath (self.filename, "scripts")]
         try:

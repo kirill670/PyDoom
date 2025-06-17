@@ -4,6 +4,12 @@
 # This file is covered by the 3-clause BSD license.
 # See the LICENSE file in this program's distribution for details.
 
+# This module provides Python-level classes and functions for managing graphics-related
+# data, primarily focused on Doom's specific formats like palettes and patch graphics.
+# Some of this functionality is complemented or superseded by the Cython-based
+# classes in `pydoom/interface.pyx` for performance-critical operations and
+# direct OpenGL interaction.
+
 from pydoom.video import ImageSurface
 import io
 import struct, array
@@ -26,7 +32,7 @@ def UnpackColor (color):
 ##### PALETTES #####
 
 class PaletteIndex:
-    """Represents a color entry in a 256-color palette."""
+    # Represents a single RGB color entry within a 256-color palette.
     def __init__ (self, red, green, blue):
         self.red   = red
         self.green = green
@@ -40,12 +46,14 @@ class PaletteIndex:
         return struct.pack ("<BBB", self.red, self.green, self.blue)
 
 class Palette:
-    """Represents a 256-color palette."""
+    # Represents a 256-color palette, typically loaded from a PLAYPAL lump.
+    # Contains a list of PaletteIndex objects.
     def __init__ (self):
         self.colors = []
 
 def MakePalettes (byteseq):
-    """Translates a binary PLAYPAL lump into a series of Palettes."""
+    # Parses a binary PLAYPAL lump (which can contain multiple palettes)
+    # and returns a list of Palette objects.
     pals = []
     numpals = len (byteseq) // 768
     if len (byteseq) % 768 != 0:
@@ -67,7 +75,10 @@ def MakePalettes (byteseq):
 ##### IMAGES #####
 
 class Image:
-    """An image class that stores its' data in an unsigned byte RGBA buffer."""
+    # A Python-level class for representing an image, storing its data in an
+    # RGBA buffer (delegated to an ImageSurface, likely from an earlier version
+    # or for Python-side manipulation before passing to Cython/OpenGL).
+    # For direct OpenGL texture preparation, `pydoom.interface.ImageSurface` is generally used.
     def __init__ (self, width, height, xofs=0, yofs=0):
         self.width = width
         self.height = height
@@ -76,11 +87,11 @@ class Image:
         self.data = ImageSurface (width, height)
 
     def GetPixel (self, x, y):
-        """Retrieves the color of a pixel at the given position."""
+        # Retrieves the RGBA color of a pixel.
         return UnpackColor (self.data.getPixel (x, y))
 
     def SetPixel (self, x, y, color=None):
-        """Sets the color of a pixel at the given position."""
+        # Sets the RGBA color of a pixel.
         if x < 0 or x >= self.dimensions[0]:
             raise ValueError ("x is out of the image boundary ({} <> {})".format (x, self.dimensions[0]))
         if y < 0 or y >= self.dimensions[1]:
@@ -99,9 +110,10 @@ class Image:
 
     @classmethod
     def LoadDoomGraphic (cls, bytebuffer, palette):
-        """Loads a top-down column-based paletted doom graphic, given the
-        graphic's binary data and a palette. Returns an Image usable
-        with the OpenGL context."""
+        # Loads a Doom patch graphic from its raw byte data and a Palette object.
+        # Converts the indexed color data to RGBA and stores it in a new Image instance.
+        # This is similar to `interface.pyx:ImageSurface.LoadDoomGraphic` but operates
+        # with Python-level Palette objects.
         pos = 0
 
         width, height, xofs, yofs = struct.unpack_from ("<HHHH",
@@ -165,7 +177,8 @@ class Image:
 
     @classmethod
     def LoadPNG (cls, bytebuffer):
-        """Loads a Portable Network Graphic."""
+        # A partially implemented PNG loader at the Python level.
+        # For more complete PNG loading, `pydoom.interface.ImageSurface.LoadPNG` is used.
 
         decompressor = zlib.decompressobj ()
 

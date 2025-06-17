@@ -7,6 +7,10 @@
 # This file is covered by the 3-clause BSD license.
 # See the LICENSE file in this program's distribution for details.
 
+# This module is responsible for reading and parsing Doom WAD (Where's All the Data?)
+# files. WAD files are archives containing all game assets like graphics, maps,
+# sounds, music, etc.
+
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from libc.stdio cimport SEEK_SET, FILE, fopen, fread, fclose, fseek, sscanf
 from libc.string cimport strcasecmp, memset
@@ -46,6 +50,8 @@ def is_wadfile (filename):
     return False
 
 cdef class WadEntry:
+    # Represents a single entry (called a "lump") within a WAD file's directory.
+    # Each lump is a piece of data, like a graphic, sound, or map component.
     cdef int index
     cdef char[9] name
     cdef int namespace
@@ -81,6 +87,9 @@ cdef class WadEntry:
         PyMem_Free (self.data)
     
     def read (self):
+        # Reads the actual data content of this lump from the WAD file.
+        # Data is cached after the first read to avoid redundant file operations.
+        # Returns the lump data as a byte string.
         if self.datafilled:
             return self.data[0:self.size]
         
@@ -93,6 +102,9 @@ cdef class WadEntry:
         return self.data[0:self.size]
 
 cdef class WadFile:
+    # Represents an entire WAD file (IWAD or PWAD).
+    # It reads the WAD's header and directory (the list of all lumps it contains)
+    # upon initialization.
     cdef list entries
     cdef FILE *fileno
     
@@ -110,6 +122,10 @@ cdef class WadFile:
             fclose (self.fileno)
     
     def __init__ (self, filename):
+        # Constructor: Opens the specified WAD file.
+        # Reads the WAD header to identify it and find the directory offset.
+        # Reads the WAD directory, creating a WadEntry object for each lump.
+        # It also identifies namespaces (S_START, F_START) during directory parsing.
         cdef int namespace = NS_GLOBAL
         cdef char[4] magic
         cdef unsigned char[8] header
@@ -222,6 +238,8 @@ cdef class WadFile:
             entry.fileno = NULL
     
     def FindFirstLump (self, name):
+        # Searches the WAD directory for the first lump matching the given name
+        # (case-insensitive). Returns a WadEntry object or None.
         if type(name) != bytes:
             encodedname = name.encode ("iso-8859-1")
         else:
@@ -236,6 +254,8 @@ cdef class WadFile:
         return None
     
     def FindAllLumps (self, name):
+        # Searches the WAD directory for all lumps matching the given name
+        # (case-insensitive). Returns a list of WadEntry objects.
         if type(name) != bytes:
             encodedname = name.encode ("iso-8859-1")
         else:

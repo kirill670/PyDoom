@@ -7,6 +7,10 @@
 # This file is covered by the 3-clause BSD license.
 # See the LICENSE file in this program's distribution for details.
 
+# This module serves as the primary interface between PyDoom's Python/Cython code
+# and the underlying SDL2 and OpenGL libraries. It handles window creation,
+# graphics rendering, image data management, and input/event processing (though event handling is not yet fully fleshed out here).
+
 from libc.string cimport memcmp, memcpy
 
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
@@ -210,6 +214,9 @@ cdef short PaethSelector (short a, short b, short c):
     return Ret
 
 cdef class ImageSurface:
+    # Represents a surface holding raw pixel data (typically RGBA).
+    # This class is crucial for loading images from various formats and preparing
+    # them for use as OpenGL textures.
     cdef size_t width
     cdef size_t height
     cdef public int xoffset
@@ -225,7 +232,7 @@ cdef class ImageSurface:
         return self.height
 
     def __cinit__ (self, size_t width, size_t height):
-        """Provides C-level allocation of data structures."""
+        # C-level constructor: Allocates memory for the pixel buffer.
         
         if width < 1 or height < 1:
             raise ValueError ("Image surface must have a valid width and height")
@@ -326,11 +333,9 @@ cdef class ImageSurface:
 
     @classmethod
     def LoadDoomGraphic (cls, bytes bytebuffer, bytes palette):
-        """ImageSurface.LoadDoomGraphic (bytebuffer, palette) -> ImageSurface
-        
-        Loads a top-down column-based paletted Doom graphic, given the
-        graphic's binary data and a binary palette. Returns an Image usable
-        with the OpenGL context."""
+        # Loads a classic Doom patch/graphic from its raw byte data and a
+        # raw palette byte string. Converts the indexed color data to RGBA
+        # and stores it in a new ImageSurface instance.
         cdef int pos = 0
         
         cdef unsigned short width, height, xofs, yofs
@@ -551,9 +556,9 @@ cdef class ImageSurface:
 
     @classmethod
     def LoadPNG (cls, bytes bytebuffer):
-        """ImageSurface.LoadPNG (bytebuffer) -> ImageSurface
-        
-        Loads a Portable Network Graphic from a byte buffer."""
+        # Loads a PNG image from its raw byte data.
+        # Supports various PNG color types, transparency, and filtering.
+        # Decodes the PNG into an RGBA ImageSurface.
         
         cdef const char *rawbuffer = bytebuffer
         cdef unsigned int rawbufferlen = len (bytebuffer)
@@ -886,6 +891,8 @@ cdef class ImageSurface:
         return image
 
 cdef class OpenGLWindow:
+    # Manages an SDL2 window with an OpenGL context. This class is responsible
+    # for all rendering operations, shader management, and texture handling.
     cdef SDL_Window *window
     cdef SDL_GLContext context
     
@@ -903,12 +910,8 @@ cdef class OpenGLWindow:
     def __init__ (self, str title="PyDoom", int width=640,
     int height=480, bint fullscreen=False, bint fullwindow=False,
     int display=0, int x=-1, int y=-1):
-        """OpenGLInterface (title="PyDoom", width=640, height=480,
-        fullscreen=False, fullwindow=False, display=0, x=-1,
-        y=-1) -> OpenGLInterface
-        
-        Creates a new OpenGL context window for rendering on.
-        """
+        # Constructor: Initializes SDL, creates an SDL window, and establishes
+        # an OpenGL context within that window. Sets up initial OpenGL state.
         
         self.textures = {}
         self.shaderPrograms = {}
@@ -1014,9 +1017,8 @@ cdef class OpenGLWindow:
         SDL_GL_SwapWindow (self.window)
     
     def compileProgram (self, str name, str fragShader, str vertShader):
-        """W.compileProgram (name, fragShader, vertShader)
-        
-        Compiles a shader program from sources, provided as strings."""
+        # Compiles GLSL vertex and fragment shader source strings, links them
+        # into a shader program, and stores it under the given 'name'.
         
         cdef GLuint program = 0
         cdef GLint status = GL_FALSE
@@ -1141,10 +1143,8 @@ cdef class OpenGLWindow:
 
     # TODO: Finish these
     def loadTexture (self, str name, ImageSurface image):
-        """W.loadTexture (name, image)
-        
-        Transforms image into a texture and stores it into video memory, which
-        can then be referenced by name in future drawing operations."""
+        # Uploads pixel data from an ImageSurface object to an OpenGL texture,
+        # making it available for rendering. Associates it with 'name'.
         
         cdef GLuint newtex = 0
         cdef GLuint lastTexture = 0
@@ -1185,13 +1185,8 @@ cdef class OpenGLWindow:
 
     def drawHud (self, str texture, float left, float top, float width,
     float height):
-        """W.drawHud (texture, left, top, width, height)
-        
-        Draws a 2-dimensional HUD element on the screen, using the graphic
-        specified by texture. left and top are offsets from the edges from the
-        screen, with 1.0 being the right and bottom. width and height are
-        relative dimensions of the image to draw, with 1.0 being the full
-        screen size."""
+        # Draws a 2D textured quad on the screen, typically for HUD elements.
+        # Uses normalized screen coordinates.
         
         # 3D vertex array for the sprite's tris
         self.spriteBuffer[0:18] = [
